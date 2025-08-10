@@ -1,0 +1,49 @@
+{
+  "Files": [
+    {
+      "Id": "/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/wwwroot/3rdpartylicenses.txt",
+      "PackagePath": "staticwebassets/3rdpartylicenses.txt"
+    },
+    {
+      "Id": "/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/wwwroot/favicon.ico",
+      "PackagePath": "staticwebassets/favicon.ico"
+    },
+    {
+      "Id": "/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/wwwroot/index.html",
+      "PackagePath": "staticwebassets/index.html"
+    },
+    {
+      "Id": "/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/wwwroot/main.a85fbcb58ef35717.js",
+      "PackagePath": "staticwebassets/main.a85fbcb58ef35717.js"
+    },
+    {
+      "Id": "/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/wwwroot/polyfills.9ccfcbda6a8b6775.js",
+      "PackagePath": "staticwebassets/polyfills.9ccfcbda6a8b6775.js"
+    },
+    {
+      "Id": "/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/wwwroot/runtime.3ee3322257ec3e68.js",
+      "PackagePath": "staticwebassets/runtime.3ee3322257ec3e68.js"
+    },
+    {
+      "Id": "/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/wwwroot/styles.ef46db3751d8e999.css",
+      "PackagePath": "staticwebassets/styles.ef46db3751d8e999.css"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.FileUploadApi.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.FileUploadApi.props",
+      "PackagePath": "build\\FileUploadApi.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.FileUploadApi.props",
+      "PackagePath": "buildMultiTargeting\\FileUploadApi.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.FileUploadApi.props",
+      "PackagePath": "buildTransitive\\FileUploadApi.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
