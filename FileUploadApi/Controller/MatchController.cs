@@ -181,7 +181,7 @@ public async Task<IActionResult> UploadMatches([FromForm] List<IFormFile> files)
                 .Where(m => m.TournamentName == tournamentName)
                 .Select(m => m.Year)
                 .Distinct()
-                .OrderBy(y => y)
+                .OrderByDescending(y => y)
                 .ToListAsync();
 
             return Ok(years);

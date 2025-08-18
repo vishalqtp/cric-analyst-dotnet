@@ -2062,3 +2062,4 @@
 /Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/bin/Debug/net8.0/UploadedFiles/2025/1473511.json
 /Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/bin/Debug/net8.0/UploadedFiles/2025/1485779.json
 /Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/bin/Debug/net8.0/FileUploadApi.staticwebassets.runtime.json
+/Users/vishalrathore/Documents/Vishal Projects/FileUploadApp/FileUploadApi/obj/Debug/net8.0/FileUploadApi.sourcelink.json
