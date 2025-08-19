@@ -33,6 +33,12 @@ if (connectionString.StartsWith("postgres://"))
 }
 
 Console.WriteLine("Using PostgreSQL database");
+// Debug connection string
+Console.WriteLine($"DATABASE_URL environment variable: {(Environment.GetEnvironmentVariable("DATABASE_URL") != null ? "SET" : "NOT SET")}");
+Console.WriteLine($"Connection string length: {connectionString?.Length ?? 0}");
+Console.WriteLine($"Connection string starts with: {(connectionString?.Length > 10 ? connectionString.Substring(0, 10) : connectionString)}");
+
+Console.WriteLine("Using PostgreSQL database");
 builder.Services.AddDbContext<CricketDbContext>(options =>
     options.UseNpgsql(connectionString));
 
