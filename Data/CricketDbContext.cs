@@ -10,4 +10,14 @@ public class CricketDbContext : DbContext
     }
 
     public DbSet<MatchInfo> Matches { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<MatchInfo>(entity =>
+        {
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd()
+                .UseIdentityColumn(); // This is PostgreSQL specific
+        });
+    }
 }
