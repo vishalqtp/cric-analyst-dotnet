@@ -62,8 +62,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.UseDefaultFiles();
-app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowAngularApp");
 app.MapControllers();
@@ -75,8 +73,6 @@ app.MapGet("/health", () => Results.Ok(new {
     environment = app.Environment.EnvironmentName,
     database = "PostgreSQL"
 }));
-
-app.MapFallbackToFile("index.html");
 
 // Configure port for Render deployment
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
