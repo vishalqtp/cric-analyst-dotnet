@@ -8,17 +8,17 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// CORS setup
+// CORS setup - More permissive for debugging
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp", policy =>
         policy.WithOrigins(
             "http://localhost:4200", // Local Angular dev server
-            "https://cric-analyst.vercel.app", // Your Vercel frontend
-            builder.Configuration["FrontendUrl"] ?? "https://cric-analyst.vercel.app"
+            "https://cric-analyst.vercel.app" // Your Vercel frontend
         )
         .AllowAnyHeader()
-        .AllowAnyMethod());
+        .AllowAnyMethod()
+        .AllowCredentials());
 });
 
 // Database configuration - PostgreSQL only
@@ -33,13 +33,24 @@ if (!string.IsNullOrEmpty(databaseUrl))
     try
     {
         var uri = new Uri(databaseUrl);
-        var userInfo = uri.UserInfo.Split(':');
+        var userInfo = uri.UserInfo?.Split(':');
+        
+        if (userInfo == null || userInfo.Length != 2 || string.IsNullOrEmpty(userInfo[0]) || string.IsNullOrEmpty(userInfo[1]))
+        {
+            throw new InvalidOperationException("Invalid DATABASE_URL format: missing or invalid username/password");
+        }
+        
         var dbPort = uri.Port == -1 ? 5432 : uri.Port; // Default to 5432 if port not specified
         var database = uri.LocalPath.StartsWith("/") ? uri.LocalPath.Substring(1) : uri.LocalPath;
         
+        if (string.IsNullOrEmpty(database))
+        {
+            throw new InvalidOperationException("Invalid DATABASE_URL format: missing database name");
+        }
+        
         connectionString = $"Host={uri.Host};Port={dbPort};Database={database};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true;";
         
-        Console.WriteLine($"Converted connection - Host: {uri.Host}, Port: {dbPort}, Database: {database}");
+        Console.WriteLine($"Converted connection - Host: {uri.Host}, Port: {dbPort}, Database: {database}, Username: {userInfo[0]}");
         Console.WriteLine("DATABASE_URL conversion successful");
     }
     catch (Exception ex)
@@ -83,18 +94,36 @@ using (var scope = app.Services.CreateScope())
     try
     {
         Console.WriteLine("Applying database migrations...");
-        db.Database.Migrate();
+        
+        // Delete and recreate database for clean PostgreSQL setup
+        if (app.Environment.IsProduction())
+        {
+            Console.WriteLine("Production environment - ensuring database exists...");
+            db.Database.EnsureCreated();
+        }
+        else
+        {
+            db.Database.Migrate();
+        }
+        
         Console.WriteLine("Database migrations applied successfully.");
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Error applying migrations: {ex.Message}");
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+        }
         Console.WriteLine("Make sure PostgreSQL is running and connection string is correct");
+        // Don't throw the exception - let the app start even if migrations fail
+        // This allows the health endpoint to work for debugging
     }
 }
 
 app.UseRouting();
 app.UseCors("AllowAngularApp");
+app.UseAuthorization();
 app.MapControllers();
 
 // Health check endpoint
