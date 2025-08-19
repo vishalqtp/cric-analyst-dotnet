@@ -10,8 +10,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FileUploadApi.Migrations
 {
     [DbContext(typeof(CricketDbContext))]
-    [Migration("20250804213508_newfeatures")]
-    partial class newfeatures
+    [Migration("20250819032603_InitialPostgreSQL")]
+    partial class InitialPostgreSQL
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
