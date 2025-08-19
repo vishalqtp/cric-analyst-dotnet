@@ -3,17 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Determine SQLite database path - works better for container deployment
-string dbPath = Environment.GetEnvironmentVariable("DB_PATH") 
-    ?? Path.Combine(AppContext.BaseDirectory, "cricket.db");
-Console.WriteLine($"Using SQLite DB at: {dbPath}");
-
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// CORS setup - Updated to include your Vercel frontend
+// CORS setup
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp", policy =>
@@ -26,9 +21,20 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod());
 });
 
-// Add DbContext with dynamic path
+// Database configuration - PostgreSQL only
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Host=localhost;Database=cricket_db;Username=postgres;Password=password";
+
+// Handle Render.com DATABASE_URL format if needed
+if (connectionString.StartsWith("postgres://"))
+{
+    connectionString = connectionString.Replace("postgres://", "postgresql://");
+}
+
+Console.WriteLine("Using PostgreSQL database");
 builder.Services.AddDbContext<CricketDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}"));
+    options.UseNpgsql(connectionString));
 
 var app = builder.Build();
 
@@ -45,33 +51,31 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<CricketDbContext>();
     try
     {
+        Console.WriteLine("Applying database migrations...");
         db.Database.Migrate();
         Console.WriteLine("Database migrations applied successfully.");
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Error applying migrations: {ex.Message}");
+        Console.WriteLine("Make sure PostgreSQL is running and connection string is correct");
     }
 }
 
-app.UseDefaultFiles(); // serves index.html by default
-app.UseStaticFiles();  // serves all static assets in wwwroot
-
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseRouting();
-
-// Apply CORS
 app.UseCors("AllowAngularApp");
-
 app.MapControllers();
 
-// Health check endpoint for Render
+// Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { 
-    status = "healthy", 
+    status = "healthy",
     timestamp = DateTime.UtcNow,
-    environment = app.Environment.EnvironmentName 
+    environment = app.Environment.EnvironmentName,
+    database = "PostgreSQL"
 }));
 
-// Fallback to Angular index.html for client side routes (if you have frontend files)
 app.MapFallbackToFile("index.html");
 
 // Configure port for Render deployment
