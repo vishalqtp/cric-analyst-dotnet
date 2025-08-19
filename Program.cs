@@ -21,28 +21,20 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod());
 });
 
-// Database configuration - supports both SQLite (local) and PostgreSQL (production)
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-var isProduction = !string.IsNullOrEmpty(databaseUrl);
+// Database configuration - PostgreSQL only
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Host=localhost;Database=cricket_db;Username=postgres;Password=password";
 
-if (isProduction)
+// Handle Render.com DATABASE_URL format if needed
+if (connectionString.StartsWith("postgres://"))
 {
-    // Use PostgreSQL for production (Render)
-    Console.WriteLine("Using PostgreSQL database for production");
-    
-    builder.Services.AddDbContext<CricketDbContext>(options =>
-        options.UseNpgsql(databaseUrl));
+    connectionString = connectionString.Replace("postgres://", "postgresql://");
 }
-else
-{
-    // Use SQLite for local development
-    var dbPath = builder.Configuration.GetConnectionString("DefaultConnection") 
-                 ?? Path.Combine(AppContext.BaseDirectory, "cricket.db");
-    Console.WriteLine($"Using SQLite DB for development at: {dbPath}");
-    
-    builder.Services.AddDbContext<CricketDbContext>(options =>
-        options.UseSqlite($"Data Source={dbPath}"));
-}
+
+Console.WriteLine("Using PostgreSQL database");
+builder.Services.AddDbContext<CricketDbContext>(options =>
+    options.UseNpgsql(connectionString));
 
 var app = builder.Build();
 
@@ -66,12 +58,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"Error applying migrations: {ex.Message}");
-        // In production, you might want to fail fast if migrations fail
-        if (isProduction)
-        {
-            Console.WriteLine("Migration failed in production. Exiting...");
-            throw;
-        }
+        Console.WriteLine("Make sure PostgreSQL is running and connection string is correct");
     }
 }
 
@@ -86,7 +73,7 @@ app.MapGet("/health", () => Results.Ok(new {
     status = "healthy",
     timestamp = DateTime.UtcNow,
     environment = app.Environment.EnvironmentName,
-    database = isProduction ? "PostgreSQL" : "SQLite"
+    database = "PostgreSQL"
 }));
 
 app.MapFallbackToFile("index.html");

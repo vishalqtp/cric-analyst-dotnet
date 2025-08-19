@@ -9,7 +9,12 @@ namespace FileUploadApi.Data
         public CricketDbContext CreateDbContext(string[] args)
         {
             var optionsBuilder = new DbContextOptionsBuilder<CricketDbContext>();
-            optionsBuilder.UseSqlite("Data Source=cricket.db");
+            
+            // Use PostgreSQL instead of SQLite
+            var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
+                ?? "Host=localhost;Database=cricket_db;Username=postgres;Password=password";
+            
+            optionsBuilder.UseNpgsql(connectionString);
 
             return new CricketDbContext(optionsBuilder.Options);
         }
