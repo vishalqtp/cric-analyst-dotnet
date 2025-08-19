@@ -34,7 +34,12 @@ if (!string.IsNullOrEmpty(databaseUrl))
     {
         var uri = new Uri(databaseUrl);
         var userInfo = uri.UserInfo.Split(':');
-        connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.LocalPath.Substring(1)};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true;";
+        var dbPort = uri.Port == -1 ? 5432 : uri.Port; // Default to 5432 if port not specified
+        var database = uri.LocalPath.StartsWith("/") ? uri.LocalPath.Substring(1) : uri.LocalPath;
+        
+        connectionString = $"Host={uri.Host};Port={dbPort};Database={database};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true;";
+        
+        Console.WriteLine($"Converted connection - Host: {uri.Host}, Port: {dbPort}, Database: {database}");
         Console.WriteLine("DATABASE_URL conversion successful");
     }
     catch (Exception ex)
