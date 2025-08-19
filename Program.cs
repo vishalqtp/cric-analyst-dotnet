@@ -95,11 +95,11 @@ using (var scope = app.Services.CreateScope())
     {
         Console.WriteLine("Applying database migrations...");
         
-        // Delete and recreate database for clean PostgreSQL setup
         if (app.Environment.IsProduction())
         {
-            Console.WriteLine("Production environment - ensuring database exists...");
-            db.Database.EnsureCreated();
+            Console.WriteLine("Production environment - dropping and recreating database...");
+            db.Database.EnsureDeleted(); // This will drop the existing database
+            db.Database.EnsureCreated();  // This will create fresh tables
         }
         else
         {
