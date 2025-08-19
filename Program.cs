@@ -22,18 +22,38 @@ builder.Services.AddCors(options =>
 });
 
 // Database configuration - PostgreSQL only
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
-    ?? builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Host=localhost;Database=cricket_db;Username=postgres;Password=password";
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+string connectionString;
 
-// Handle Render.com DATABASE_URL format if needed
-if (connectionString.StartsWith("postgres://"))
+if (!string.IsNullOrEmpty(databaseUrl))
 {
-    connectionString = connectionString.Replace("postgres://", "postgresql://");
+    Console.WriteLine("Converting DATABASE_URL to Entity Framework connection string...");
+    
+    // Convert Render's PostgreSQL URL to EF connection string format
+    try
+    {
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':');
+        connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.LocalPath.Substring(1)};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true;";
+        Console.WriteLine("DATABASE_URL conversion successful");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error converting DATABASE_URL: {ex.Message}");
+        // Fallback to original DATABASE_URL (might work in some cases)
+        connectionString = databaseUrl;
+    }
+}
+else
+{
+    // Fallback to configuration or default
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Host=localhost;Database=cricket_db;Username=postgres;Password=password";
+    Console.WriteLine("Using fallback connection string");
 }
 
 Console.WriteLine("Using PostgreSQL database");
-// Debug connection string
+// Debug connection string (without showing sensitive data)
 Console.WriteLine($"DATABASE_URL environment variable: {(Environment.GetEnvironmentVariable("DATABASE_URL") != null ? "SET" : "NOT SET")}");
 Console.WriteLine($"Connection string length: {connectionString?.Length ?? 0}");
 Console.WriteLine($"Connection string starts with: {(connectionString?.Length > 10 ? connectionString.Substring(0, 10) : connectionString)}");
