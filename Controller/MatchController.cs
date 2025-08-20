@@ -17,59 +17,6 @@ namespace FileUploadApi.Controllers
             _context = context;
         }
 
-        // [HttpPost("upload")]
-        // public async Task<IActionResult> UploadMatches([FromForm] List<IFormFile> files)
-        // {
-        //     if (files == null || files.Count == 0)
-        //         return BadRequest("No files provided.");
-
-        //     foreach (var file in files)
-        //     {
-        //         using var ms = new MemoryStream();
-        //         await file.CopyToAsync(ms);
-        //         ms.Position = 0;
-
-        //         string jsonData;
-        //         using (var reader = new StreamReader(ms, leaveOpen: true))
-        //         {
-        //             jsonData = await reader.ReadToEndAsync();
-        //         }
-
-        //         using var doc = JsonDocument.Parse(jsonData);
-        //         var root = doc.RootElement;
-
-        //         string tournamentName = "UnknownTournament";
-        //         if (root.TryGetProperty("info", out var info) &&
-        //             info.TryGetProperty("event", out var ev) &&
-        //             ev.TryGetProperty("name", out var evName))
-        //         {
-        //             tournamentName = evName.GetString() ?? "UnknownTournament";
-        //         }
-
-        //         int year = 0;
-        //         if (root.TryGetProperty("info", out var infoYear) &&
-        //             infoYear.TryGetProperty("season", out var season))
-        //         {
-        //             int.TryParse(season.GetString(), out year);
-        //         }
-
-        //         var match = new MatchInfo
-        //         {
-        //             TournamentName = tournamentName,
-        //             Year = year.ToString(),
-        //             MatchId = file.FileName, // or generate your own if needed
-        //             JsonData = jsonData
-        //         };
-
-        //         _context.Matches.Add(match);
-        //     }
-
-        //     await _context.SaveChangesAsync();
-
-        //     return Ok(new { Message = $"{files.Count} matches uploaded successfully." });
-        // }
-
-
         [HttpPost("upload")]
         public async Task<IActionResult> UploadMatches([FromForm] List<IFormFile> files)
         {
@@ -114,12 +61,8 @@ namespace FileUploadApi.Controllers
                     tournamentName = evName.GetString() ?? "UnknownTournament";
                 }
 
-                int year = 0;
-                if (root.TryGetProperty("info", out var infoYear) &&
-                    infoYear.TryGetProperty("season", out var season))
-                {
-                    int.TryParse(season.GetString(), out year);
-                }
+                // Enhanced year/season parsing
+                string yearOrSeason = ExtractYearOrSeason(root);
 
                 // Check for duplicate by TournamentName + MatchId (filename)
                 bool isDuplicate = await _context.Matches
@@ -134,7 +77,7 @@ namespace FileUploadApi.Controllers
                 var match = new MatchInfo
                 {
                     TournamentName = tournamentName,
-                    Year = year.ToString(),
+                    Year = yearOrSeason,
                     MatchId = file.FileName,
                     JsonData = jsonData
                 };
@@ -158,68 +101,7 @@ namespace FileUploadApi.Controllers
             return Ok(response);
         }
 
-
-        [HttpGet("tournaments")]
-        public async Task<IActionResult> GetTournaments()
-        {
-            var tournaments = await _context.Matches
-                .GroupBy(m => m.TournamentName)
-                .Select(g => new
-                {
-                    id = g.Key,
-                    name = g.Key
-                })
-                .ToListAsync();
-
-            return Ok(tournaments);
-        }
-
-        [HttpGet("years/{tournamentName}")]
-        public async Task<IActionResult> GetYears(string tournamentName)
-        {
-            var years = await _context.Matches
-                .Where(m => m.TournamentName == tournamentName)
-                .Select(m => m.Year)
-                .Distinct()
-                .OrderByDescending(y => y)
-                .ToListAsync();
-
-            return Ok(years);
-        }
-
-        [HttpGet("matches/{tournamentName}/{year}")]
-        public async Task<IActionResult> GetMatches(string tournamentName, int year)
-        {
-            var matches = await _context.Matches
-                .Where(m => m.TournamentName == tournamentName)
-                .ToListAsync();
-
-            var filteredMatches = matches
-                .Where(m => int.TryParse(m.Year, out var y) && y == year)
-                .Select(m => new
-                {
-                    id = m.Id,
-                    matchId = m.MatchId,
-                    jsonData = m.JsonData
-                    // Optionally parse date or opponent from JSONData here or return minimal
-                })
-                .ToList();
-
-            return Ok(filteredMatches);
-        }
-
-        [HttpGet("matches/{tournamentName}/all")]
-        public async Task<IActionResult> GetAllMatches(string tournamentName)
-        {
-            var matches = await _context.Matches
-                .Where(m => m.TournamentName == tournamentName)
-                .ToListAsync();
-
-            return Ok(matches);
-        }
-
-
-private string ExtractYearOrSeason(JsonElement root)
+       private string ExtractYearOrSeason(JsonElement root)
 {
     string yearOrSeason = "0";
 
@@ -279,6 +161,92 @@ private string ExtractYearOrSeason(JsonElement root)
 
     return yearOrSeason;
 }
+       
+        [HttpGet("tournaments")]
+        public async Task<IActionResult> GetTournaments()
+        {
+            var tournaments = await _context.Matches
+                .GroupBy(m => m.TournamentName)
+                .Select(g => new
+                {
+                    id = g.Key,
+                    name = g.Key
+                })
+                .ToListAsync();
+
+            return Ok(tournaments);
+        }
+
+        [HttpGet("years/{tournamentName}")]
+        public async Task<IActionResult> GetYears(string tournamentName)
+        {
+            var years = await _context.Matches
+                .Where(m => m.TournamentName == tournamentName)
+                .Select(m => m.Year)
+                .Distinct()
+                .OrderByDescending(y => y)
+                .ToListAsync();
+
+            return Ok(years);
+        }
+
+        [HttpGet("matches/{tournamentName}/{year}")]
+        public async Task<IActionResult> GetMatches(string tournamentName, int year)
+        {
+            var matches = await _context.Matches
+                .Where(m => m.TournamentName == tournamentName)
+                .ToListAsync();
+
+            // Enhanced filtering to handle both year and season formats
+            var filteredMatches = matches
+                .Where(m => MatchesYearOrSeason(m.Year, year))
+                .Select(m => new
+                {
+                    id = m.Id,
+                    matchId = m.MatchId,
+                    jsonData = m.JsonData 
+                })
+                .ToList();
+
+            return Ok(filteredMatches);
+        }
+
+        private bool MatchesYearOrSeason(string storedYear, int requestedYear)
+        {
+            // Handle "0" or invalid years
+            if (string.IsNullOrEmpty(storedYear) || storedYear == "0")
+            {
+                return false;
+            }
+
+            // Direct year match
+            if (int.TryParse(storedYear, out var directYear) && directYear == requestedYear)
+            {
+                return true;
+            }
+
+            // Season format match (e.g., "2011/12" should match year 2011)
+            if (storedYear.Contains('/'))
+            {
+                var parts = storedYear.Split('/');
+                if (parts.Length >= 2 && int.TryParse(parts[0], out var seasonStartYear))
+                {
+                    return seasonStartYear == requestedYear;
+                }
+            }
+
+            return false;
+        }
+
+        [HttpGet("matches/{tournamentName}/all")]
+        public async Task<IActionResult> GetAllMatches(string tournamentName)
+        {
+            var matches = await _context.Matches
+                .Where(m => m.TournamentName == tournamentName)
+                .ToListAsync();
+
+            return Ok(matches);
+        }
 
         [HttpGet("match/{id}")]
         public async Task<IActionResult> GetMatchJson(int id)
@@ -290,6 +258,4 @@ private string ExtractYearOrSeason(JsonElement root)
             return Ok(JsonDocument.Parse(match.JsonData).RootElement);
         }
     }
-    
-    
 }
