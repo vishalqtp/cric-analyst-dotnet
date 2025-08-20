@@ -71,92 +71,92 @@ namespace FileUploadApi.Controllers
 
 
         [HttpPost("upload")]
-public async Task<IActionResult> UploadMatches([FromForm] List<IFormFile> files)
-{
-    if (files == null || files.Count == 0)
-        return BadRequest("No files provided.");
-
-    var failedFiles = new List<string>();
-    var duplicateFiles = new List<string>();
-    int successCount = 0;
-
-    foreach (var file in files)
-    {
-        using var ms = new MemoryStream();
-        await file.CopyToAsync(ms);
-        ms.Position = 0;
-
-        string jsonData;
-        using (var reader = new StreamReader(ms, leaveOpen: true))
+        public async Task<IActionResult> UploadMatches([FromForm] List<IFormFile> files)
         {
-            jsonData = await reader.ReadToEndAsync();
+            if (files == null || files.Count == 0)
+                return BadRequest("No files provided.");
+
+            var failedFiles = new List<string>();
+            var duplicateFiles = new List<string>();
+            int successCount = 0;
+
+            foreach (var file in files)
+            {
+                using var ms = new MemoryStream();
+                await file.CopyToAsync(ms);
+                ms.Position = 0;
+
+                string jsonData;
+                using (var reader = new StreamReader(ms, leaveOpen: true))
+                {
+                    jsonData = await reader.ReadToEndAsync();
+                }
+
+                JsonDocument doc;
+                try
+                {
+                    doc = JsonDocument.Parse(jsonData);
+                }
+                catch (JsonException)
+                {
+                    // JSON parsing failed - log filename and skip
+                    failedFiles.Add(file.FileName);
+                    continue;
+                }
+
+                var root = doc.RootElement;
+
+                string tournamentName = "UnknownTournament";
+                if (root.TryGetProperty("info", out var info) &&
+                    info.TryGetProperty("event", out var ev) &&
+                    ev.TryGetProperty("name", out var evName))
+                {
+                    tournamentName = evName.GetString() ?? "UnknownTournament";
+                }
+
+                int year = 0;
+                if (root.TryGetProperty("info", out var infoYear) &&
+                    infoYear.TryGetProperty("season", out var season))
+                {
+                    int.TryParse(season.GetString(), out year);
+                }
+
+                // Check for duplicate by TournamentName + MatchId (filename)
+                bool isDuplicate = await _context.Matches
+                    .AnyAsync(m => m.TournamentName == tournamentName && m.MatchId == file.FileName);
+
+                if (isDuplicate)
+                {
+                    duplicateFiles.Add(file.FileName);
+                    continue; // skip this duplicate file
+                }
+
+                var match = new MatchInfo
+                {
+                    TournamentName = tournamentName,
+                    Year = year.ToString(),
+                    MatchId = file.FileName,
+                    JsonData = jsonData
+                };
+
+                _context.Matches.Add(match);
+                successCount++;
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Build response message
+            var response = new
+            {
+                Uploaded = successCount,
+                Failed = failedFiles.Count,
+                Duplicates = duplicateFiles.Count,
+                FailedFiles = failedFiles,
+                DuplicateFiles = duplicateFiles
+            };
+
+            return Ok(response);
         }
-
-        JsonDocument doc;
-        try
-        {
-            doc = JsonDocument.Parse(jsonData);
-        }
-        catch (JsonException)
-        {
-            // JSON parsing failed - log filename and skip
-            failedFiles.Add(file.FileName);
-            continue;
-        }
-
-        var root = doc.RootElement;
-
-        string tournamentName = "UnknownTournament";
-        if (root.TryGetProperty("info", out var info) &&
-            info.TryGetProperty("event", out var ev) &&
-            ev.TryGetProperty("name", out var evName))
-        {
-            tournamentName = evName.GetString() ?? "UnknownTournament";
-        }
-
-        int year = 0;
-        if (root.TryGetProperty("info", out var infoYear) &&
-            infoYear.TryGetProperty("season", out var season))
-        {
-            int.TryParse(season.GetString(), out year);
-        }
-
-        // Check for duplicate by TournamentName + MatchId (filename)
-        bool isDuplicate = await _context.Matches
-            .AnyAsync(m => m.TournamentName == tournamentName && m.MatchId == file.FileName);
-
-        if (isDuplicate)
-        {
-            duplicateFiles.Add(file.FileName);
-            continue; // skip this duplicate file
-        }
-
-        var match = new MatchInfo
-        {
-            TournamentName = tournamentName,
-            Year = year.ToString(),
-            MatchId = file.FileName,
-            JsonData = jsonData
-        };
-
-        _context.Matches.Add(match);
-        successCount++;
-    }
-
-    await _context.SaveChangesAsync();
-
-    // Build response message
-    var response = new
-    {
-        Uploaded = successCount,
-        Failed = failedFiles.Count,
-        Duplicates = duplicateFiles.Count,
-        FailedFiles = failedFiles,
-        DuplicateFiles = duplicateFiles
-    };
-
-    return Ok(response);
-}
 
 
         [HttpGet("tournaments")]
@@ -200,7 +200,7 @@ public async Task<IActionResult> UploadMatches([FromForm] List<IFormFile> files)
                 {
                     id = m.Id,
                     matchId = m.MatchId,
-                      jsonData = m.JsonData 
+                    jsonData = m.JsonData
                     // Optionally parse date or opponent from JSONData here or return minimal
                 })
                 .ToList();
@@ -208,17 +208,77 @@ public async Task<IActionResult> UploadMatches([FromForm] List<IFormFile> files)
             return Ok(filteredMatches);
         }
 
-[HttpGet("matches/{tournamentName}/all")]
-public async Task<IActionResult> GetAllMatches(string tournamentName)
+        [HttpGet("matches/{tournamentName}/all")]
+        public async Task<IActionResult> GetAllMatches(string tournamentName)
+        {
+            var matches = await _context.Matches
+                .Where(m => m.TournamentName == tournamentName)
+                .ToListAsync();
+
+            return Ok(matches);
+        }
+
+
+private string ExtractYearOrSeason(JsonElement root)
 {
-    var matches = await _context.Matches
-        .Where(m => m.TournamentName == tournamentName)
-        .ToListAsync();
+    string yearOrSeason = "0";
 
-    return Ok(matches);
+    if (root.TryGetProperty("info", out var info))
+    {
+        // First, try to get season (for BBL, IPL, etc.)
+        if (info.TryGetProperty("season", out var season))
+        {
+            var seasonValue = season.GetString();
+            if (!string.IsNullOrWhiteSpace(seasonValue))
+            {
+                // For seasons like "2023/24", extract the first year
+                if (seasonValue.Contains('/'))
+                {
+                    var parts = seasonValue.Split('/');
+                    if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out var firstYear))
+                    {
+                        yearOrSeason = firstYear.ToString();
+                        return yearOrSeason;
+                    }
+                }
+                // For seasons like "2024" (direct year as string)
+                else if (int.TryParse(seasonValue.Trim(), out var directSeasonYear))
+                {
+                    yearOrSeason = directSeasonYear.ToString();
+                    return yearOrSeason;
+                }
+            }
+        }
+
+        // If no season or season parsing failed, try to get year directly
+        if (info.TryGetProperty("year", out var year))
+        {
+            var yearValue = year.GetString();
+            if (!string.IsNullOrEmpty(yearValue) && int.TryParse(yearValue, out var directYear))
+            {
+                yearOrSeason = directYear.ToString();
+                return yearOrSeason;
+            }
+        }
+
+        // If neither season nor year, try to extract from dates
+        if (info.TryGetProperty("dates", out var dates) && dates.ValueKind == JsonValueKind.Array)
+        {
+            var firstDate = dates.EnumerateArray().FirstOrDefault();
+            if (firstDate.ValueKind == JsonValueKind.String)
+            {
+                var dateString = firstDate.GetString();
+                if (!string.IsNullOrEmpty(dateString) && DateTime.TryParse(dateString, out var parsedDate))
+                {
+                    yearOrSeason = parsedDate.Year.ToString();
+                    return yearOrSeason;
+                }
+            }
+        }
+    }
+
+    return yearOrSeason;
 }
-
-        
 
         [HttpGet("match/{id}")]
         public async Task<IActionResult> GetMatchJson(int id)
@@ -230,4 +290,6 @@ public async Task<IActionResult> GetAllMatches(string tournamentName)
             return Ok(JsonDocument.Parse(match.JsonData).RootElement);
         }
     }
+    
+    
 }
