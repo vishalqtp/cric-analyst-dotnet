@@ -121,11 +121,17 @@ using (var scope = app.Services.CreateScope())
         //     db.Database.EnsureDeleted(); // This will drop the existing database
         //     db.Database.EnsureCreated();  // This will create fresh tables
         // }
-        
-        if (app.Environment.IsProduction())
+
+            //         if (app.Environment.IsProduction())
+            // {
+            //     Console.WriteLine("Production environment - ensuring database is created...");
+            //     db.Database.EnsureCreated();  // Just create tables if they don't exist
+            // }
+
+if (app.Environment.IsProduction())
 {
-    Console.WriteLine("Production environment - ensuring database is created...");
-    db.Database.EnsureCreated();  // Just create tables if they don't exist
+    Console.WriteLine("Production environment - applying migrations...");
+    db.Database.Migrate();  // This will properly apply your migrations
 }
         else
         {
