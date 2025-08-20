@@ -22,9 +22,11 @@ builder.Services.AddCors(options =>
 });
 
 // Database configuration - PostgreSQL only
+// Priority order: DATABASE_URL -> Individual env vars -> appsettings.json -> default
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 string connectionString;
 
+// OPTION 1: If DATABASE_URL exists (old Render PostgreSQL format)
 if (!string.IsNullOrEmpty(databaseUrl))
 {
     Console.WriteLine("Converting DATABASE_URL to Entity Framework connection string...");
@@ -62,15 +64,33 @@ if (!string.IsNullOrEmpty(databaseUrl))
 }
 else
 {
-    // Fallback to configuration or default
-    connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? "Host=localhost;Database=cricket_db;Username=postgres;Password=password";
-    Console.WriteLine("Using fallback connection string");
+    // OPTION 2: Try to build connection string from individual environment variables (Supabase format)
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
+    var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+    var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+    var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
+
+    if (!string.IsNullOrEmpty(dbHost) && !string.IsNullOrEmpty(dbName) && 
+        !string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPassword))
+    {
+        connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode=Require;Trust Server Certificate=true;";
+        Console.WriteLine("Using individual environment variables for database connection (Supabase)");
+        Console.WriteLine($"Connecting to host: {dbHost}, database: {dbName}, user: {dbUser}");
+    }
+    else
+    {
+        // OPTION 3: Fallback to configuration (appsettings.json) - for local development
+        connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? "Host=localhost;Database=cricket_db;Username=postgres;Password=password";
+        Console.WriteLine("Using fallback connection string from appsettings.json or default");
+    }
 }
 
 Console.WriteLine("Using PostgreSQL database");
 // Debug connection string (without showing sensitive data)
 Console.WriteLine($"DATABASE_URL environment variable: {(Environment.GetEnvironmentVariable("DATABASE_URL") != null ? "SET" : "NOT SET")}");
+Console.WriteLine($"DB_HOST environment variable: {(Environment.GetEnvironmentVariable("DB_HOST") != null ? "SET" : "NOT SET")}");
 Console.WriteLine($"Connection string length: {connectionString?.Length ?? 0}");
 Console.WriteLine($"Connection string starts with: {(connectionString?.Length > 10 ? connectionString.Substring(0, 10) : connectionString)}");
 
